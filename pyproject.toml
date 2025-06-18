@@ -1,7 +1,7 @@
 [project]
 name = "strava-mcp-server"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server for Strava API integration with heart rate data"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -10,3 +10,10 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "requests>=2.32.4",
 ]
+
+[project.scripts]
+strava-mcp = "strava_mcp_server.server:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

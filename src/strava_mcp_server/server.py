@@ -79,6 +79,30 @@ class StravaClient:
 
         return response.json()
 
+    def get_activity_streams(self, activity_id: int, keys: list[str], series_type: str = "time") -> dict:
+        """
+        Get activity streams (including heart rate).
+
+        Args:
+            activity_id: ID of the activity
+            keys: List of stream keys to retrieve (e.g., ["heartrate", "time"])
+            series_type: Type of series (default: "time")
+
+        Returns:
+            Dictionary of stream data
+        """
+        params = {
+            "keys": ",".join(keys),
+            "series_type": series_type
+        }
+        
+        try:
+            streams = self._make_request(f"activities/{activity_id}/streams", params)
+            return streams
+        except Exception as e:
+            print(f"Error fetching streams for activity {activity_id}: {e}")
+            return {}
+
     def get_activities(
         self, limit: int = 10, before: Optional[int] = None, after: Optional[int] = None
     ) -> list:
@@ -102,6 +126,28 @@ class StravaClient:
             params["after"] = after
 
         activities = self._make_request("athlete/activities", params)
+        
+        # Add heart rate data to each activity
+        for activity in activities:
+            activity_id = activity.get("id")
+            if activity_id:
+                # Fetch heart rate stream for this activity
+                streams = self.get_activity_streams(activity_id, ["heartrate", "time"])
+                
+                # Extract heart rate data if available
+                heartrate_data = None
+                for stream in streams:
+                    if stream.get("type") == "heartrate":
+                        heartrate_data = stream.get("data", [])
+                        break
+                
+                # Add heart rate statistics to activity
+                if heartrate_data:
+                    activity["heartrate_data"] = heartrate_data
+                    activity["average_heartrate"] = sum(heartrate_data) / len(heartrate_data) if heartrate_data else None
+                    activity["max_heartrate"] = max(heartrate_data) if heartrate_data else None
+                    activity["min_heartrate"] = min(heartrate_data) if heartrate_data else None
+        
         return self._filter_activities(activities)
 
     def get_activity(self, activity_id: int) -> dict:
@@ -115,6 +161,24 @@ class StravaClient:
             Activity details
         """
         activity = self._make_request(f"activities/{activity_id}")
+        
+        # Fetch heart rate stream for this activity
+        streams = self.get_activity_streams(activity_id, ["heartrate", "time"])
+        
+        # Extract heart rate data if available
+        heartrate_data = None
+        for stream in streams:
+            if stream.get("type") == "heartrate":
+                heartrate_data = stream.get("data", [])
+                break
+        
+        # Add heart rate statistics to activity
+        if heartrate_data:
+            activity["heartrate_data"] = heartrate_data
+            activity["average_heartrate"] = sum(heartrate_data) / len(heartrate_data) if heartrate_data else None
+            activity["max_heartrate"] = max(heartrate_data) if heartrate_data else None
+            activity["min_heartrate"] = min(heartrate_data) if heartrate_data else None
+        
         return self._filter_activity(activity)
 
     def _filter_activity(self, activity: dict) -> dict:
@@ -135,6 +199,12 @@ class StravaClient:
             "start_latlng": "start_latlng",
             "total_elevation_gain": "total_elevation_gain_metres",
             "name": "name",  # Keep name for display purposes
+            "id": "id",  # Keep ID for reference
+            # Add heart rate fields
+            "average_heartrate": "average_heartrate_bpm",
+            "max_heartrate": "max_heartrate_bpm",
+            "min_heartrate": "min_heartrate_bpm",
+            "heartrate_data": "heartrate_data",  # Raw heart rate data array
         }
 
         # Create a new dictionary with renamed fields
