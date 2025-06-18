@@ -7,6 +7,12 @@
 
 A [Model Context Protocol](https://modelcontextprotocol.io/introduction) (MCP) server that provides access to the Strava API. It allows language models to query athlete activities data from the Strava API.
 
+## What’s new? :boom: (2025-06 edition)
+
+Heart-rate support – every activity now includes heartrate_data plus average_ / max_ / min_heartrate_bpm fields, pulled live from the Strava streams endpoint.
+
+Example configuration shows how to launch the server from a Python virtual environment inside Claude Desktop (without uvx wrapper required).
+
 ## Available Tools
 
 The server exposes the following tools:
@@ -22,24 +28,27 @@ Dates should be provided in ISO format (`YYYY-MM-DD`).
 
 ## Activity Data Format
 
-The server returns activity data with consistent field names and units:
-
 | Field | Description | Unit |
 |-------|-------------|------|
-| `name` | Activity name | - |
-| `sport_type` | Type of sport | - |
-| `start_date` | Start date and time | ISO 8601 |
-| `distance_metres` | Distance | meters |
-| `elapsed_time_seconds` | Total elapsed time | seconds |
-| `moving_time_seconds` | Moving time | seconds |
-| `average_speed_mps` | Average speed | meters per second |
-| `max_speed_mps` | Maximum speed | meters per second |
-| `total_elevation_gain_metres` | Total elevation gain | meters |
-| `elev_high_metres` | Highest elevation | meters |
-| `elev_low_metres` | Lowest elevation | meters |
-| `calories` | Calories burned | kcal |
-| `start_latlng` | Start coordinates | [lat, lng] |
-| `end_latlng` | End coordinates | [lat, lng] |
+| `name` | Activity name | – |
+| `sport_type` | Sport | – |
+| `start_date` | Start ISO-8601 | – |
+| `distance_metres` | Distance | m |
+| `elapsed_time_seconds` | Elapsed time | s |
+| `moving_time_seconds` | Moving time | s |
+| `average_speed_mps` | Avg. speed | m · s⁻¹ |
+| `max_speed_mps` | Max speed | m · s⁻¹ |
+| `total_elevation_gain_metres` | Elevation gain | m |
+| `elev_high_metres` | High point | m |
+| `elev_low_metres` | Low point | m |
+| `calories` | Calories | kcal |
+| `start_latlng` | Start coords | `[lat,lng]` |
+| `end_latlng` | End coords | `[lat,lng]` |
+| **Heart-rate extras** |||
+| `average_heartrate_bpm` | Average HR | bpm |
+| `max_heartrate_bpm` | Max HR | bpm |
+| `min_heartrate_bpm` | Min HR | bpm |
+| `heartrate_data` | Raw HR stream | array |
 
 ## Authentication
 
@@ -66,25 +75,50 @@ To use this server, you'll need to authenticate with the Strava API. Follow thes
 
 ## Usage
 
-### Claude for Desktop
+## Local setup with a virtual environment (recommended)
 
-Update your `claude_desktop_config.json` (located in `~/Library/Application\ Support/Claude/claude_desktop_config.json` on macOS and `%APPDATA%/Claude/claude_desktop_config.json` on Windows) to include the following:
+```bash
+git clone https://github.com/mwilkosz/strava-mcp-server.git
+cd strava-mcp-server
 
-```json
+python3 -m venv .venv
+# macOS/Linux
+source .venv/bin/activate
+# Windows
+.venv\Scripts\Activate.ps1
+
+pip install -e .
+```
+
+### Run the server from the venv
+
+```bash
+python -m strava_mcp_server.server
+#  or
+uvicorn strava_mcp_server.server:app --reload
+```
+
+---
+
+## Claude integration
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json` (macOS `~/Library/Application Support/Claude/…`, Windows `%APPDATA%\Claude\…`):
+
+```jsonc
 {
-    "mcpServers": {
-        "strava": {
-            "command": "uvx",
-            "args": [
-                "strava-mcp-server"
-            ],
-            "env": {
-                "STRAVA_CLIENT_ID": "YOUR_CLIENT_ID",
-                "STRAVA_CLIENT_SECRET": "YOUR_CLIENT_SECRET",
-                "STRAVA_REFRESH_TOKEN": "YOUR_REFRESH_TOKEN"
-            }
-        }
+  "mcpServers": {
+    "strava": {
+      "command": "/absolute/path/to/strava-mcp-server/.venv/bin/python",
+      "args": ["-m", "strava_mcp_server.server"],
+      "env": {
+        "STRAVA_CLIENT_ID":     "YOUR_CLIENT_ID",
+        "STRAVA_CLIENT_SECRET": "YOUR_CLIENT_SECRET",
+        "STRAVA_REFRESH_TOKEN": "YOUR_REFRESH_TOKEN"
+      }
     }
+  }
 }
 ```
 
